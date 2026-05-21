@@ -24,8 +24,8 @@ class PDFImageInserterGUI:
         self.carpeta_pdfs = tk.StringVar()
         self.carpeta_salida = tk.StringVar()
         self.imagen = tk.StringVar()
-        self.coord_x = tk.IntVar(value=350)
-        self.coord_y = tk.IntVar(value=600)
+        self.coord_x = tk.IntVar(value=100)
+        self.coord_y = tk.IntVar(value=100)
         self.pagina = tk.IntVar(value=1)
         
         # Crear interfaz
