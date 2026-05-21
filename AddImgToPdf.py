@@ -24,8 +24,8 @@ class PDFImageInserterGUI:
         self.carpeta_pdfs = tk.StringVar()
         self.carpeta_salida = tk.StringVar()
         self.imagen = tk.StringVar()
-        self.coord_x = tk.IntVar(value=100)
-        self.coord_y = tk.IntVar(value=100)
+        self.coord_x = tk.IntVar(value=350)
+        self.coord_y = tk.IntVar(value=600)
         self.pagina = tk.IntVar(value=1)
         
         # Crear interfaz
@@ -160,6 +160,21 @@ class PDFImageInserterGUI:
         if not os.path.exists(self.imagen.get()):
             messagebox.showerror("Error", "La imagen no existe")
             return False
+        
+        # Advertir si entrada y salida son la misma carpeta
+        carpeta_pdfs_abs = os.path.abspath(self.carpeta_pdfs.get())
+        carpeta_salida_abs = os.path.abspath(self.carpeta_salida.get())
+        
+        if carpeta_pdfs_abs.lower() == carpeta_salida_abs.lower():
+            respuesta = messagebox.askokcancel(
+                "⚠️ Advertencia",
+                "La carpeta de entrada y salida son la misma.\n\n"
+                "Esto SOBRESCRIBIRÁ los archivos PDF originales.\n"
+                "No habrá forma de recuperarlos si algo sale mal.\n\n"
+                "¿Estás seguro de que quieres continuar?"
+            )
+            if not respuesta:
+                return False
         
         return True
     
