@@ -33,6 +33,11 @@ class PDFImageInserterGUI_V2:
         
         # Variable para la imagen de preview
         self.preview_image = None
+        self.preview_zoom = 0.5  # Factor de zoom usado en el preview
+        self.dragging = False
+        self.drag_start_x = 0
+        self.drag_start_y = 0
+        self.img_canvas_id = None  # ID de la imagen en el canvas
         
         # Añadir trazas para actualización automática del preview
         self.coord_x.trace_add('write', lambda *args: self.actualizar_preview())
@@ -157,6 +162,11 @@ class PDFImageInserterGUI_V2:
         # Canvas para la vista previa
         self.preview_canvas = tk.Canvas(preview_frame, width=350, height=500, bg='white')
         self.preview_canvas.pack()
+        
+        # Configurar eventos para arrastrar la imagen
+        self.preview_canvas.bind('<Button-1>', self.on_preview_click)
+        self.preview_canvas.bind('<B1-Motion>', self.on_preview_drag)
+        self.preview_canvas.bind('<ButtonRelease-1>', self.on_preview_release)
         
         # Etiqueta de ayuda
         self.preview_label = ttk.Label(preview_frame, 
@@ -296,6 +306,51 @@ class PDFImageInserterGUI_V2:
             self.imagen.set(imagen)
             self.actualizar_preview()
     
+    def on_preview_click(self, event):
+        """Inicia el arrastre cuando se hace click en el preview"""
+        # Verificar si se hizo click sobre la imagen
+        items = self.preview_canvas.find_overlapping(event.x, event.y, event.x, event.y)
+        if items and self.img_canvas_id in items:
+            self.dragging = True
+            self.drag_start_x = event.x
+            self.drag_start_y = event.y
+            self.preview_canvas.config(cursor="fleur")  # Cursor de mover
+    
+    def on_preview_drag(self, event):
+        """Arrastra la imagen en el preview"""
+        if not self.dragging:
+            return
+        
+        # Calcular el desplazamiento
+        dx = event.x - self.drag_start_x
+        dy = event.y - self.drag_start_y
+        
+        # Actualizar posición de inicio para el siguiente movimiento
+        self.drag_start_x = event.x
+        self.drag_start_y = event.y
+        
+        # Convertir el desplazamiento del canvas a coordenadas reales del PDF
+        # El preview usa zoom de 0.5, así que multiplicamos por 2
+        dx_real = dx / self.preview_zoom
+        dy_real = dy / self.preview_zoom
+        
+        # Actualizar las coordenadas
+        new_x = self.coord_x.get() + int(dx_real)
+        new_y = self.coord_y.get() + int(dy_real)
+        
+        # Limitar a valores positivos
+        new_x = max(0, min(1000, new_x))
+        new_y = max(0, min(1000, new_y))
+        
+        # Actualizar las variables (esto disparará el trace y actualizará el preview)
+        self.coord_x.set(new_x)
+        self.coord_y.set(new_y)
+    
+    def on_preview_release(self, event):
+        """Finaliza el arrastre"""
+        self.dragging = False
+        self.preview_canvas.config(cursor="")
+    
     def actualizar_preview(self):
         """Actualiza la vista previa con el PDF y la imagen"""
         # Verificar que tenemos lo necesario
@@ -349,6 +404,7 @@ class PDFImageInserterGUI_V2:
             
             # Renderizar la página a imagen
             zoom = 0.5  # Factor de zoom para ajustar al canvas
+            self.preview_zoom = zoom  # Guardar para convertir coordenadas al arrastrar
             mat = fitz.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
             
@@ -373,7 +429,7 @@ class PDFImageInserterGUI_V2:
             
             # Mostrar en el canvas
             self.preview_canvas.delete("all")
-            self.preview_canvas.create_image(
+            self.img_canvas_id = self.preview_canvas.create_image(
                 canvas_width // 2, 
                 canvas_height // 2, 
                 image=self.preview_image, 
