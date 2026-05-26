@@ -5,12 +5,12 @@ Insertar Imagen en PDFs - Versión 2 con Vista Previa
 Permite seleccionar archivos individuales y ver preview en tiempo real
 """
 
-import fitz  # PyMuPDF
+import fitz  # pyright: ignore[reportMissingImports] # PyMuPDF
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from tkinterdnd2 import DND_FILES, TkinterDnD
-from PIL import Image, ImageTk
+from tkinterdnd2 import DND_FILES, TkinterDnD # pyright: ignore[reportMissingImports]
+from PIL import Image, ImageTk # pyright: ignore[reportMissingImports]
 import io
 import threading
 
