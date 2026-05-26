@@ -9,6 +9,7 @@ import fitz  # PyMuPDF
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from tkinterdnd2 import DND_FILES, TkinterDnD
 from PIL import Image, ImageTk
 import io
 import threading
@@ -76,6 +77,13 @@ class PDFImageInserterGUI_V2:
                                        yscrollcommand=scrollbar_list.set)
         self.pdf_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar_list.config(command=self.pdf_listbox.yview)
+        
+        # Configurar drag and drop
+        self.pdf_listbox.drop_target_register('DND_Files')
+        self.pdf_listbox.dnd_bind('<<Drop>>', self.on_drop_files)
+        
+        # Configurar evento de selección para actualizar preview
+        self.pdf_listbox.bind('<<ListboxSelect>>', lambda e: self.actualizar_preview())
         
         # Botón para quitar PDF seleccionado
         ttk.Button(list_frame, text="❌ Quitar seleccionado", 
@@ -170,8 +178,8 @@ class PDFImageInserterGUI_V2:
                     self.archivos_pdf.append(archivo)
                     self.pdf_listbox.insert(tk.END, os.path.basename(archivo))
             
-            # Si no hay carpeta de salida, sugerir una basada en el primer PDF
-            if not self.carpeta_salida.get() and self.archivos_pdf:
+            # Establecer carpeta de salida basada en el primer PDF
+            if self.archivos_pdf:
                 carpeta_primer_pdf = os.path.dirname(self.archivos_pdf[0])
                 salida = os.path.join(carpeta_primer_pdf, "output")
                 self.carpeta_salida.set(salida)
@@ -187,6 +195,87 @@ class PDFImageInserterGUI_V2:
             self.pdf_listbox.delete(index)
             self.archivos_pdf.pop(index)
             self.actualizar_preview()
+    
+    def on_drop_files(self, event):
+        """Maneja archivos arrastrados al listbox"""
+        # Los archivos vienen como string separados por espacios
+        # Si tienen espacios en el nombre, vienen entre llaves {}
+        archivos_raw = event.data
+        
+        # Parsear los archivos (tkinterdnd2 los devuelve en un formato especial)
+        archivos = self.parsear_archivos_dropped(archivos_raw)
+        
+        # Separar PDFs de otros archivos
+        pdfs_validos = []
+        archivos_invalidos = []
+        
+        for archivo in archivos:
+            if os.path.isfile(archivo):
+                if archivo.lower().endswith('.pdf'):
+                    pdfs_validos.append(archivo)
+                else:
+                    archivos_invalidos.append(os.path.basename(archivo))
+        
+        # Agregar PDFs válidos (evitar duplicados)
+        pdfs_agregados = 0
+        for pdf in pdfs_validos:
+            if pdf not in self.archivos_pdf:
+                self.archivos_pdf.append(pdf)
+                self.pdf_listbox.insert(tk.END, os.path.basename(pdf))
+                pdfs_agregados += 1
+        
+        # Si se agregaron PDFs, actualizar carpeta de salida basada en el primer PDF
+        if pdfs_agregados > 0 and self.archivos_pdf:
+            carpeta_primer_pdf = os.path.dirname(self.archivos_pdf[0])
+            salida = os.path.join(carpeta_primer_pdf, "output")
+            self.carpeta_salida.set(salida)
+        
+        # Actualizar preview si se agregaron PDFs
+        if pdfs_agregados > 0:
+            self.actualizar_preview()
+        
+        # Mostrar advertencia si hay archivos no PDF
+        if archivos_invalidos:
+            mensaje = "Solo se admiten archivos PDF.\n\n"
+            mensaje += f"Archivos no importados ({len(archivos_invalidos)}):\n"
+            # Limitar la lista a 10 archivos para no hacer el mensaje muy largo
+            if len(archivos_invalidos) <= 10:
+                mensaje += "\n".join(f"• {archivo}" for archivo in archivos_invalidos)
+            else:
+                mensaje += "\n".join(f"• {archivo}" for archivo in archivos_invalidos[:10])
+                mensaje += f"\n... y {len(archivos_invalidos) - 10} más"
+            
+            messagebox.showwarning("Archivos no válidos", mensaje)
+    
+    def parsear_archivos_dropped(self, data):
+        """Parsea la cadena de archivos arrastrados"""
+        archivos = []
+        
+        # En Windows, tkinterdnd2 devuelve los archivos entre llaves si tienen espacios
+        # Ejemplo: {C:/ruta/archivo 1.pdf} {C:/ruta/archivo2.pdf}
+        if data.startswith('{'):
+            # Archivos con espacios
+            archivo_actual = ""
+            dentro_llave = False
+            
+            for char in data:
+                if char == '{':
+                    dentro_llave = True
+                    archivo_actual = ""
+                elif char == '}':
+                    dentro_llave = False
+                    if archivo_actual:
+                        archivos.append(archivo_actual)
+                elif dentro_llave:
+                    archivo_actual += char
+        else:
+            # Archivos sin espacios, separados por espacios
+            archivos = data.split()
+        
+        # Limpiar las rutas
+        archivos = [archivo.strip() for archivo in archivos if archivo.strip()]
+        
+        return archivos
     
     def seleccionar_carpeta_salida(self):
         """Selecciona la carpeta de salida"""
@@ -219,8 +308,19 @@ class PDFImageInserterGUI_V2:
             return
         
         try:
-            # Usar el primer PDF de la lista
-            pdf_path = self.archivos_pdf[0]
+            # Obtener el PDF seleccionado en el listbox
+            seleccion = self.pdf_listbox.curselection()
+            if seleccion:
+                pdf_index = seleccion[0]
+            else:
+                # Si no hay selección, usar el primero
+                pdf_index = 0
+            
+            # Verificar que el índice es válido
+            if pdf_index >= len(self.archivos_pdf):
+                pdf_index = 0
+            
+            pdf_path = self.archivos_pdf[pdf_index]
             imagen_path = self.imagen.get()
             pagina = self.pagina.get() - 1
             x = self.coord_x.get()
@@ -429,7 +529,7 @@ class PDFImageInserterGUI_V2:
 
 def main():
     """Función principal"""
-    root = tk.Tk()
+    root = TkinterDnD.Tk()
     
     # Estilo
     style = ttk.Style()
