@@ -5,12 +5,12 @@ Insertar Imagen en PDFs - Versión 2 con Vista Previa
 Permite seleccionar archivos individuales y ver preview en tiempo real
 """
 
-import fitz  # pyright: ignore[reportMissingImports] # PyMuPDF
+import fitz  # PyMuPDF
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from tkinterdnd2 import DND_FILES, TkinterDnD # pyright: ignore[reportMissingImports]
-from PIL import Image, ImageTk # pyright: ignore[reportMissingImports]
+from tkinterdnd2 import DND_FILES, TkinterDnD
+from PIL import Image, ImageTk
 import io
 import threading
 
@@ -82,6 +82,10 @@ class PDFImageInserterGUI_V2:
                                        yscrollcommand=scrollbar_list.set)
         self.pdf_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar_list.config(command=self.pdf_listbox.yview)
+        
+        # Añadir mensaje inicial
+        self.pdf_listbox.insert(0, "Arrastra aquí o selecciona los archivos PDF a procesar...")
+        self.pdf_listbox.config(fg='gray')  # Color gris para el placeholder
         
         # Configurar drag and drop
         self.pdf_listbox.drop_target_register('DND_Files')
@@ -182,6 +186,11 @@ class PDFImageInserterGUI_V2:
         )
         
         if archivos:
+            # Limpiar el placeholder si es la primera vez que se agregan archivos
+            if len(self.archivos_pdf) == 0 and self.pdf_listbox.size() == 1:
+                self.pdf_listbox.delete(0)
+                self.pdf_listbox.config(fg='black')
+            
             # Agregar archivos a la lista (evitar duplicados)
             for archivo in archivos:
                 if archivo not in self.archivos_pdf:
@@ -204,6 +213,12 @@ class PDFImageInserterGUI_V2:
             index = seleccion[0]
             self.pdf_listbox.delete(index)
             self.archivos_pdf.pop(index)
+            
+            # Si se quitó el último archivo, restaurar el placeholder
+            if len(self.archivos_pdf) == 0:
+                self.pdf_listbox.insert(0, "Arrastra aquí o selecciona los archivos PDF a procesar")
+                self.pdf_listbox.config(fg='gray')
+            
             self.actualizar_preview()
     
     def on_drop_files(self, event):
@@ -225,6 +240,11 @@ class PDFImageInserterGUI_V2:
                     pdfs_validos.append(archivo)
                 else:
                     archivos_invalidos.append(os.path.basename(archivo))
+        
+        # Limpiar el placeholder si es la primera vez que se agregan archivos
+        if len(self.archivos_pdf) == 0 and pdfs_validos and self.pdf_listbox.size() == 1:
+            self.pdf_listbox.delete(0)
+            self.pdf_listbox.config(fg='black')
         
         # Agregar PDFs válidos (evitar duplicados)
         pdfs_agregados = 0
